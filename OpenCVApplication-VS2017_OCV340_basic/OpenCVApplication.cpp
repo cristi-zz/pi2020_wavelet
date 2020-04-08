@@ -163,6 +163,7 @@ void testDecomposition()
 		imshow("LH", results.at(1));
 		imshow("HL", results.at(2));
 		imshow("HH", results.at(3));
+
 		waitKey(0);
 	}
 }
