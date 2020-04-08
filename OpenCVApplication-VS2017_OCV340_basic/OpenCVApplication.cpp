@@ -113,6 +113,7 @@ std::vector<Mat_<uchar>> divideIntoFour(Mat_<uchar> originalImage)
 
 		half1High = getHighVector(half1High);
 
+
 		for (int r = 0; r < half1Low.size(); r++)
 		{
 			ll(r, c) = half1Low.at(r);
