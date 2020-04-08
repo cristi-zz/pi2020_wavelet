@@ -90,7 +90,7 @@ std::vector<Mat_<uchar>> divideIntoFour(Mat_<uchar> originalImage)
 		for (int c = 0; c < half1Low.size(); c++)
 		{
 			l(r, c) = half1Low.at(c);
-			h(r, c) = half1High.at(c);
+			h(r, c) =  half1High.at(c);
 		}
 	}
 
