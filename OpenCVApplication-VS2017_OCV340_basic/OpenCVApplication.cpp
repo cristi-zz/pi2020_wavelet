@@ -39,6 +39,19 @@ void testParcurgereSimplaDiblookStyle()
 	}
 }
 
+float clampValue(float val, float min, float max)
+{
+	if (val < min)
+	{
+		return min;
+	}
+	if (val > max)
+	{
+		return max;
+	}
+	return val;
+}
+
 std::vector<float> getLowVector(std::vector<float> fullVector)
 {
 	std::vector<float> v;
@@ -65,7 +78,7 @@ std::vector<float> getHighVector(std::vector<float> fullVector)
 	return v;
 }
 
-std::vector<Mat_<float>> divideIntoFour(Mat_<uchar> originalImage)
+std::vector<Mat_<float>> divideIntoFour(Mat_<float> originalImage)
 {
 	std::vector<Mat_<float>> results;
 	int rows = originalImage.rows;
@@ -151,30 +164,30 @@ std::vector<Mat_<float>> divideIntoFour(Mat_<uchar> originalImage)
 	return results;
 }
 
-Mat_<float> reconstructImage(Mat_<uchar> ll, Mat_<uchar> lh, Mat_<uchar> hl, Mat_<uchar> hh)
+Mat_<float> reconstructImage(Mat_<float> ll, Mat_<float> lh, Mat_<float> hl, Mat_<float> hh)
 {
 	int rows = ll.rows;
 	int cols = ll.cols;
-	Mat_<uchar> l = Mat_<uchar>(rows, cols * 2);
-	Mat_<uchar> h = Mat_<uchar>(rows, cols * 2);
+	Mat_<float> l = Mat_<float>(rows, cols * 2);
+	Mat_<float> h = Mat_<float>(rows, cols * 2);
 	for (int r = 0; r < rows; r++)
 	{
-		std::vector<uchar> vector_low;
-		std::vector<uchar> vector_high;
+		std::vector<float> vector_low;
+		std::vector<float> vector_high;
 		for (int c = 0; c < cols; c++)
 		{
 			vector_low.push_back(ll(r, c));
 			vector_high.push_back(lh(r, c));
 		}
 
-		std::vector<uchar> low_usample;
-		std::vector<uchar> high_usample;
+		std::vector<float> low_usample;
+		std::vector<float> high_usample;
 
 		int stop = 2 * vector_low.size();
 		for (int k = 0; k < stop; k++)
 		{
 			low_usample.push_back(vector_low.at(k / 2));
-			high_usample.push_back(vector_high.at(k / 2) * h(k % 2));
+			high_usample.push_back(vector_high.at(k / 2));
 		}
 		for (int c = 0; c < low_usample.size(); c++)
 		{
@@ -184,22 +197,22 @@ Mat_<float> reconstructImage(Mat_<uchar> ll, Mat_<uchar> lh, Mat_<uchar> hl, Mat
 
 	for (int r = 0; r < rows; r++)
 	{
-		std::vector<uchar> vector_low;
-		std::vector<uchar> vector_high;
+		std::vector<float> vector_low;
+		std::vector<float> vector_high;
 		for (int c = 0; c < cols; c++)
 		{
 			vector_low.push_back(hl(r, c));
 			vector_high.push_back(hh(r, c));
 		}
 
-		std::vector<uchar> low_usample;
-		std::vector<uchar> high_usample;
+		std::vector<float> low_usample;
+		std::vector<float> high_usample;
 
 		int stop = 2 * vector_low.size();
 		for (int k = 0; k < stop; k++)
 		{
 			low_usample.push_back(vector_low.at(k / 2));
-			high_usample.push_back(vector_high.at(k / 2) * h(k % 2));
+			high_usample.push_back(vector_high.at(k / 2));
 		}
 		for (int c = 0; c < low_usample.size(); c++)
 		{
@@ -207,25 +220,25 @@ Mat_<float> reconstructImage(Mat_<uchar> ll, Mat_<uchar> lh, Mat_<uchar> hl, Mat
 		}
 	}
 
-	Mat_<uchar> reconstructedImage = Mat_<uchar>(2 * rows, 2 * cols);
+	Mat_<float> reconstructedImage = Mat_<float>(2 * rows, 2 * cols);
 	for (int c = 0; c < 2 * cols; c++)
 	{
-		std::vector<uchar> vector_low;
-		std::vector<uchar> vector_high;
+		std::vector<float> vector_low;
+		std::vector<float> vector_high;
 		for (int r = 0; r < rows; r++)
 		{
 			vector_low.push_back(l(r, c));
 			vector_high.push_back(h(r, c));
 		}
 
-		std::vector<uchar> low_usample;
-		std::vector<uchar> high_usample;
+		std::vector<float> low_usample;
+		std::vector<float> high_usample;
 
 		int stop = 2 * vector_low.size();
 		for (int k = 0; k < stop; k++)
 		{
 			low_usample.push_back(vector_low.at(k / 2));
-			high_usample.push_back(vector_high.at(k / 2) * h(k % 2));
+			high_usample.push_back(vector_high.at(k / 2));
 		}
 		for (int r = 0; r < low_usample.size(); r++)
 		{
@@ -236,34 +249,80 @@ Mat_<float> reconstructImage(Mat_<uchar> ll, Mat_<uchar> lh, Mat_<uchar> hl, Mat
 	return reconstructedImage;
 }
 
+std::vector<Mat_<float>> recursiveDecomposition(Mat_<uchar> orig)
+{
+	std::vector<Mat_<float>> result;
+	Mat_<uchar> ll = orig.clone();
+	while (ll.rows > 2)
+	{
+		std::vector<Mat_<float>> div4 = divideIntoFour(ll);
+		result.push_back(div4.at(0));
+		
+		result.push_back(div4.at(1));
+		result.push_back(div4.at(2));
+		result.push_back(div4.at(3));
+		ll = div4.at(0).clone();
+	}
+
+	return result;
+}
+
+// LL, LH, HL, HH apar cate 4, una dupa alta, pentru un anumit nivel de adancime
+Mat_<float> recursiveReconstruction(std::vector<Mat_<float>> allDecompositions)
+{
+	int groupsOf4Count = allDecompositions.size() / 4;
+	Mat_<float> ll = allDecompositions.at(allDecompositions.size() - 4).clone();
+	for (int i = 0; i < groupsOf4Count; i++)
+	{
+		int start = allDecompositions.size() - 4 * (i + 1);
+		Mat_<float> lh = allDecompositions.at(start + 1);
+		Mat_<float> hl = allDecompositions.at(start + 2);
+		Mat_<float> hh = allDecompositions.at(start + 3);
+		Mat_<float> newLL = reconstructImage(ll, lh, hl, hh);
+		ll = newLL;
+	}
+	return ll;
+}
+
+void recursiveTests()
+{
+	char fname[MAX_PATH];
+	while (openFileDlg(fname))
+	{
+		Mat_<uchar> src = imread(fname, CV_LOAD_IMAGE_GRAYSCALE);
+		std::vector<Mat_<float>> decomp = recursiveDecomposition(src);
+		Mat_<uchar> reconstructed = recursiveReconstruction(decomp);
+		imshow("Original", src);
+		imshow("Reconstructed", reconstructed);
+		waitKey(0);
+	}
+}
+
 void testDecomposition()
 {
 	char fname[MAX_PATH];
 	while (openFileDlg(fname))
 	{
 		Mat_<uchar> src = imread(fname, CV_LOAD_IMAGE_GRAYSCALE);
-		std::cout << src.rows << ", " << src.cols << std::endl;
 		std::vector<Mat_<float>> results = divideIntoFour(src);
 		imshow("Original", src);
+
 		Mat_<float> ll = results.at(0);
 		Mat_<float> lh = results.at(1);
 		Mat_<float> hl = results.at(2);
 		Mat_<float> hh = results.at(3);
-		Mat_<uchar> llCopy = Mat_<float>(ll.rows, ll.cols);
-		Mat_<uchar> lhCopy = Mat_<float>(ll.rows, ll.cols);
-		Mat_<uchar> hlCopy = Mat_<float>(ll.rows, ll.cols);
-		Mat_<uchar> hhCopy = Mat_<float>(ll.rows, ll.cols);
-		ll.convertTo(llCopy, CV_8U);
-		lh.convertTo(lhCopy, CV_8U);
-		hl.convertTo(hlCopy, CV_8U);
-		hh.convertTo(hhCopy, CV_8U);
-		imshow("LL", llCopy);
-		imshow("LH", lhCopy);
-		imshow("HL", hlCopy);
-		imshow("HH", hhCopy);
 		Mat_<uchar> reconstructed = reconstructImage(ll, lh, hl, hh);
 
+		Mat_<uchar> pll = ll;
+		Mat_<uchar> plh = lh;
+		Mat_<uchar> phl = hl;
+		Mat_<uchar> phh = hh;
+
 		imshow("Reconstruction", reconstructed);
+		imshow("LL", pll);
+		imshow("LH", plh);
+		imshow("HL", phl);
+		imshow("HH", phh);
 
 		waitKey(0);
 	}
@@ -272,7 +331,7 @@ void testDecomposition()
 int main()
 {
 	testDecomposition();
-
+	//recursiveTests();
 	getchar();
 
 	return 0;
