@@ -5,7 +5,7 @@
 #include "common.h"
 #include<vector>
 
-int h[2] = { 1, -1 };
+int hVec[2] = { 1, -1 };
 void testParcurgereSimplaDiblookStyle()
 {
 	char fname[MAX_PATH];
@@ -187,7 +187,7 @@ Mat_<float> reconstructImage(Mat_<float> ll, Mat_<float> lh, Mat_<float> hl, Mat
 		for (int k = 0; k < stop; k++)
 		{
 			low_usample.push_back(vector_low.at(k / 2));
-			high_usample.push_back(vector_high.at(k / 2));
+			high_usample.push_back(vector_high.at(k / 2) * hVec[k % 2]);
 		}
 		for (int c = 0; c < low_usample.size(); c++)
 		{
@@ -212,7 +212,7 @@ Mat_<float> reconstructImage(Mat_<float> ll, Mat_<float> lh, Mat_<float> hl, Mat
 		for (int k = 0; k < stop; k++)
 		{
 			low_usample.push_back(vector_low.at(k / 2));
-			high_usample.push_back(vector_high.at(k / 2));
+			high_usample.push_back(vector_high.at(k / 2) * hVec[k % 2]);
 		}
 		for (int c = 0; c < low_usample.size(); c++)
 		{
@@ -238,7 +238,7 @@ Mat_<float> reconstructImage(Mat_<float> ll, Mat_<float> lh, Mat_<float> hl, Mat
 		for (int k = 0; k < stop; k++)
 		{
 			low_usample.push_back(vector_low.at(k / 2));
-			high_usample.push_back(vector_high.at(k / 2));
+			high_usample.push_back(vector_high.at(k / 2) * hVec[k % 2]);
 		}
 		for (int r = 0; r < low_usample.size(); r++)
 		{
@@ -320,9 +320,9 @@ void testDecomposition()
 
 		imshow("Reconstruction", reconstructed);
 		imshow("LL", pll);
-		imshow("LH", plh);
-		imshow("HL", phl);
-		imshow("HH", phh);
+		imshow("LH", plh + 128);
+		imshow("HL", phl + 128);
+		imshow("HH", phh + 128);
 
 		waitKey(0);
 	}
