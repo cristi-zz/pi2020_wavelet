@@ -252,12 +252,36 @@ Mat_<float> reconstructImage(Mat_<float> ll, Mat_<float> lh, Mat_<float> hl, Mat
 	return reconstructedImage;
 }
 
+
+
+Mat_<uchar> combineImage(Mat_<uchar> ll, Mat_<uchar> lh, Mat_<uchar> hl, Mat_<uchar> hh) {
+
+	Mat_<uchar> result(ll.rows * 2, ll.cols * 2);
+	ll.copyTo(result(Rect(0, 0, ll.cols, ll.rows)));
+	lh.copyTo(result(Rect(lh.rows, 0, lh.cols, lh.rows)));
+	hl.copyTo(result(Rect(0, hl.rows, hl.cols, hl.rows)));
+	hh.copyTo(result(Rect(hh.rows, hh.cols, hh.cols, hh.rows)));
+
+	return result;
+}
 // result = [LH_128x128, HL_128x128, HH_128x128, LH_64x64, HL_64X64, HH_64X64, ...., LL_2x2, LH_2X2, HL_2X2, HH_2X2]
 // LL_2^n x 2^n -> LL_2^(n - 1), LH_2^(n - 1), HL_2^(n - 1), HH_2^(n - 1)
 std::vector<Mat_<float>> recursiveDecomposition(Mat_<uchar> orig)
 {
 	std::vector<Mat_<float>> result;
 	Mat_<uchar> ll = orig.clone();
+
+	while (ll.rows > 2) {
+		std::vector<Mat_<float>> divFour = divideIntoFour(ll);
+		ll = divFour.at(0).clone();
+		if (ll.rows == 2) {
+			result.push_back(ll);
+		}
+		result.push_back(divFour.at(1));
+		result.push_back(divFour.at(2));
+		result.push_back(divFour.at(3));
+
+	}
 
 	return result;
 }
@@ -268,20 +292,103 @@ std::vector<Mat_<float>> recursiveDecomposition(Mat_<uchar> orig)
 // LL_2^n = reconstructImage(LL_2^(n - 1), LH_2^(n - 1), HL_2^(n - 1), HH_2^(n - 1))
 Mat_<float> recursiveReconstruction(std::vector<Mat_<float>> allDecompositions)
 {
-	Mat_<float> ll;
+
+	int sz = allDecompositions.size();
+	Mat_<float> ll = reconstructImage(allDecompositions.at(sz - 4), allDecompositions.at(sz - 3), allDecompositions.at(sz - 2), allDecompositions.at(sz - 1));
+
+	for (int i = sz - 5; i >= 0; i -= 3) {
+		ll = reconstructImage(ll, allDecompositions.at(i - 2), allDecompositions.at(i - 1), allDecompositions.at(i));
+	}
+
 	return ll;
 }
 
-void recursiveTests()
-{
+
+Mat_<uchar> modifyContrast(Mat_<uchar> img) {
+	int imin = 0xffffff, imax = -0xffffff, outMax = 250, outMin = 10;
+
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			//g in max/g in min
+			if (img(i, j) < imin) {
+				imin = img(i, j);
+			}
+			if (img(i, j) > imax) {
+				imax = img(i, j);
+			}
+		}
+	}
+	float decision = (float)(outMax - outMin) / (float)(imax - imin);
+	Mat_<uchar>contrast(img.rows, img.cols);
+	for (int i = 0; i < img.rows; i++) {
+		for (int j = 0; j < img.cols; j++) {
+			contrast(i, j) = outMin + (img(i, j) - imin)*decision;
+		}
+	}
+	return contrast;
+
+}
+
+// result = [LL_128x128,LH_128x128, HL_128x128, HH_128x128,LL_64x64, LH_64x64, HL_64X64, HH_64X64, ...., LL_16x16, LH_16X16, HL_16X16, HH_16X16]
+
+void display4Levels() {
 	char fname[MAX_PATH];
 	while (openFileDlg(fname))
 	{
 		Mat_<uchar> src = imread(fname, CV_LOAD_IMAGE_GRAYSCALE);
-		std::vector<Mat_<float>> decomp = recursiveDecomposition(src);
-		Mat_<uchar> reconstructed = recursiveReconstruction(decomp);
+		std::vector<Mat_<uchar>> finalImg;
 		imshow("Original", src);
-		imshow("Reconstructed", reconstructed);
+		for (int i = 0; i < 4; i++) {
+			std::vector<Mat_<float>> results = divideIntoFour(src);
+
+			Mat_<float> ll = results.at(0);
+			Mat_<float> lh = results.at(1);
+			Mat_<float> hl = results.at(2);
+			Mat_<float> hh = results.at(3);
+
+
+			Mat_<uchar> pll = ll;
+			Mat_<uchar> plh = lh;
+			Mat_<uchar> phl = hl;
+			Mat_<uchar> phh = hh;
+
+			finalImg.push_back(pll);
+			finalImg.push_back(plh);
+			finalImg.push_back(phl);
+			finalImg.push_back(phh);
+
+			src = pll;
+		}
+		Mat_<uchar> combineImg;
+		for (int i = finalImg.size() - 1; i >= 0; i -= 4) {
+			Mat_<uchar> pll = finalImg.at(i - 3);
+			Mat_<uchar> plh = finalImg.at(i - 2);
+			Mat_<uchar> phl = finalImg.at(i - 1);
+			Mat_<uchar> phh = finalImg.at(i);
+			if (pll.rows == 16) {
+				combineImg = combineImage(pll, modifyContrast(plh), modifyContrast(phl), modifyContrast(phh));
+			}
+			else {
+				combineImg = combineImage(combineImg, modifyContrast(plh), modifyContrast(phl), modifyContrast(phh));
+			}
+
+		}
+		imshow("256x256", combineImg);
+		waitKey(0);
+	}
+}
+
+void testRecursiveReconstruction() {
+	char fname[MAX_PATH];
+	while (openFileDlg(fname))
+	{
+		Mat_<uchar> src = imread(fname, CV_LOAD_IMAGE_GRAYSCALE);
+		std::vector<Mat_<float>> decompositions = recursiveDecomposition(src);
+		Mat_<float> finalImg = recursiveReconstruction(decompositions);
+		Mat_<uchar> reconstructed = finalImg;
+
+		imshow("Original", src);
+		imshow("Reconstruction", reconstructed);
 		waitKey(0);
 	}
 }
@@ -308,9 +415,9 @@ void testDecomposition()
 
 		imshow("Reconstruction", reconstructed);
 		imshow("LL", pll);
-		imshow("LH", plh + 128);
-		imshow("HL", phl + 128);
-		imshow("HH", phh + 128);
+		imshow("LH", modifyContrast(plh));
+		imshow("HL", modifyContrast(phl));
+		imshow("HH", modifyContrast(phh));
 
 		waitKey(0);
 	}
@@ -318,7 +425,31 @@ void testDecomposition()
 
 int main()
 {
-	testDecomposition();
+	int op;
+
+	do {
+		destroyAllWindows();
+		printf("Menu:\n");
+		printf(" 1 - Decomposition & Reconstruction \n");
+		printf(" 2 - Recursive Reconstruction\n");
+		printf(" 3 - Recursive 4 Levels Decomposition \n");
+		printf(" 0 - Exit\n\n");
+		printf("Option: ");
+		scanf("%d", &op);
+
+		switch (op) {
+			case 1:
+				testDecomposition();
+				break;
+			case 2:
+				testRecursiveReconstruction();
+				break;
+			case 3:
+				display4Levels();
+				break;
+		}
+	} while (op != 0);
+	
 	getchar();
 
 	return 0;
