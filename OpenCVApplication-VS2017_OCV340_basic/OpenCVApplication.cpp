@@ -164,6 +164,28 @@ std::vector<Mat_<float>> divideIntoFour(Mat_<float> originalImage)
 	return results;
 }
 
+std::vector<float> getLow_USample(std::vector<float> vector_low)
+{
+	std::vector<float> low_usample;
+	int stop = 2 * vector_low.size();
+	for (int k = 0; k < stop; k++)
+	{
+		low_usample.push_back(vector_low.at(k / 2));
+	}
+	return low_usample;
+}
+
+std::vector<float> getHigh_USample(std::vector<float> vector_high)
+{
+	std::vector<float> high_usample;
+	int stop = 2 * vector_high.size();
+	for (int k = 0; k < stop; k++)
+	{
+		high_usample.push_back(vector_high.at(k / 2) * hVec[k % 2]);
+	}
+	return high_usample;
+}
+
 Mat_<float> reconstructImage(Mat_<float> ll, Mat_<float> lh, Mat_<float> hl, Mat_<float> hh)
 {
 	int rows = ll.rows;
@@ -180,15 +202,8 @@ Mat_<float> reconstructImage(Mat_<float> ll, Mat_<float> lh, Mat_<float> hl, Mat
 			vector_high.push_back(lh(r, c));
 		}
 
-		std::vector<float> low_usample;
-		std::vector<float> high_usample;
-
-		int stop = 2 * vector_low.size();
-		for (int k = 0; k < stop; k++)
-		{
-			low_usample.push_back(vector_low.at(k / 2));
-			high_usample.push_back(vector_high.at(k / 2) * hVec[k % 2]);
-		}
+		std::vector<float> low_usample = getLow_USample(vector_low);
+		std::vector<float> high_usample = getHigh_USample(vector_high);
 		for (int c = 0; c < low_usample.size(); c++)
 		{
 			l(r, c) = low_usample.at(c) + high_usample.at(c);
@@ -205,15 +220,9 @@ Mat_<float> reconstructImage(Mat_<float> ll, Mat_<float> lh, Mat_<float> hl, Mat
 			vector_high.push_back(hh(r, c));
 		}
 
-		std::vector<float> low_usample;
-		std::vector<float> high_usample;
+		std::vector<float> low_usample = getLow_USample(vector_low);
+		std::vector<float> high_usample = getHigh_USample(vector_high);
 
-		int stop = 2 * vector_low.size();
-		for (int k = 0; k < stop; k++)
-		{
-			low_usample.push_back(vector_low.at(k / 2));
-			high_usample.push_back(vector_high.at(k / 2) * hVec[k % 2]);
-		}
 		for (int c = 0; c < low_usample.size(); c++)
 		{
 			h(r, c) = low_usample.at(c) + high_usample.at(c);
@@ -231,15 +240,9 @@ Mat_<float> reconstructImage(Mat_<float> ll, Mat_<float> lh, Mat_<float> hl, Mat
 			vector_high.push_back(h(r, c));
 		}
 
-		std::vector<float> low_usample;
-		std::vector<float> high_usample;
+		std::vector<float> low_usample = getLow_USample(vector_low);
+		std::vector<float> high_usample = getHigh_USample(vector_high);
 
-		int stop = 2 * vector_low.size();
-		for (int k = 0; k < stop; k++)
-		{
-			low_usample.push_back(vector_low.at(k / 2));
-			high_usample.push_back(vector_high.at(k / 2) * hVec[k % 2]);
-		}
 		for (int r = 0; r < low_usample.size(); r++)
 		{
 			reconstructedImage(r, c) = low_usample.at(r) + high_usample.at(r);
@@ -249,38 +252,23 @@ Mat_<float> reconstructImage(Mat_<float> ll, Mat_<float> lh, Mat_<float> hl, Mat
 	return reconstructedImage;
 }
 
+// result = [LH_128x128, HL_128x128, HH_128x128, LH_64x64, HL_64X64, HH_64X64, ...., LL_2x2, LH_2X2, HL_2X2, HH_2X2]
+// LL_2^n x 2^n -> LL_2^(n - 1), LH_2^(n - 1), HL_2^(n - 1), HH_2^(n - 1)
 std::vector<Mat_<float>> recursiveDecomposition(Mat_<uchar> orig)
 {
 	std::vector<Mat_<float>> result;
 	Mat_<uchar> ll = orig.clone();
-	while (ll.rows > 2)
-	{
-		std::vector<Mat_<float>> div4 = divideIntoFour(ll);
-		result.push_back(div4.at(0));
-		
-		result.push_back(div4.at(1));
-		result.push_back(div4.at(2));
-		result.push_back(div4.at(3));
-		ll = div4.at(0).clone();
-	}
 
 	return result;
 }
 
-// LL, LH, HL, HH apar cate 4, una dupa alta, pentru un anumit nivel de adancime
+// allDecompositions = [LH_128x128, HL_128x128, HH_128x128, LH_64x64, HL_64X64, HH_64X64, ...., LL_2x2, LH_2X2, HL_2X2, HH_2X2]
+// LL_4x4 = reconstructImage(LL_2x2, LH_2x2, HL_2x2, HH_2x2)
+// ...
+// LL_2^n = reconstructImage(LL_2^(n - 1), LH_2^(n - 1), HL_2^(n - 1), HH_2^(n - 1))
 Mat_<float> recursiveReconstruction(std::vector<Mat_<float>> allDecompositions)
 {
-	int groupsOf4Count = allDecompositions.size() / 4;
-	Mat_<float> ll = allDecompositions.at(allDecompositions.size() - 4).clone();
-	for (int i = 0; i < groupsOf4Count; i++)
-	{
-		int start = allDecompositions.size() - 4 * (i + 1);
-		Mat_<float> lh = allDecompositions.at(start + 1);
-		Mat_<float> hl = allDecompositions.at(start + 2);
-		Mat_<float> hh = allDecompositions.at(start + 3);
-		Mat_<float> newLL = reconstructImage(ll, lh, hl, hh);
-		ll = newLL;
-	}
+	Mat_<float> ll;
 	return ll;
 }
 
@@ -331,7 +319,6 @@ void testDecomposition()
 int main()
 {
 	testDecomposition();
-	//recursiveTests();
 	getchar();
 
 	return 0;
