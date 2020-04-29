@@ -423,6 +423,28 @@ void testDecomposition()
 	}
 }
 
+// res -> (original - reconstruction) * 10 + 128
+Mat_<uchar> computeDifference(Mat_<uchar> original, Mat_<uchar> reconstruction)
+{
+	int rows = original.rows;
+	int cols = original.cols;
+	Mat_<uchar> res = Mat_<uchar>(rows, cols);
+
+	return res;
+}
+
+// se afiseaza src (original), imaginea reconstruita (dupa divizare recursiva si reconstructie recursiva)
+//		si imaginea diferenta returnata de functia de mai sus
+void testOriginalComparisonWithRes()
+{
+	char fname[MAX_PATH];
+	while (openFileDlg(fname))
+	{
+		Mat_<uchar> src = imread(fname, CV_LOAD_IMAGE_GRAYSCALE);
+		waitKey(0);
+	}
+}
+
 int main()
 {
 	int op;
