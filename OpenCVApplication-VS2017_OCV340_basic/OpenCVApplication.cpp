@@ -459,6 +459,119 @@ void testOriginalComparisonWithRes()
 	}
 }
 
+void printVector(std::vector<float> vec)
+{
+	std::cout << "[";
+	for (int i = 0; i < vec.size() - 1; i++)
+	{
+		std::cout << vec.at(i) << ", ";
+	}
+	std::cout << vec.at(vec.size() - 1) << "]";
+}
+
+typedef struct
+{
+	std::vector<float> lowVec;
+	std::vector<float> highVec;
+}LowHighVecPair;
+
+std::vector<float> addVectors(std::vector<float> v1, std::vector<float> v2)
+{
+	std::vector<float> res;
+	for (int i = 0; i < v1.size(); i++)
+	{
+		res.push_back(v1.at(i) + v2.at(i));
+	}
+	return res;
+}
+
+std::vector<LowHighVecPair> printAndReturnDecomposition(std::vector<float> nums)
+{
+	std::cout << "\n";
+	std::queue<std::vector<float>> vectors;
+	vectors.push(nums);
+
+	std::vector<LowHighVecPair> reconstructLowHighPairs;
+	while (!vectors.empty())
+	{
+		std::vector<float> vec = vectors.front();
+		vectors.pop();
+		printVector(vec);
+		std::vector<float> lowVec = getLowVector(vec);
+		std::vector<float> highVec = getHighVector(vec);
+		std::cout << " -> L: ";
+		printVector(lowVec);
+		std::cout << ", H : ";
+		printVector(highVec);
+		std::cout << "\n";
+		if (lowVec.size() > 1)
+		{
+			vectors.push(lowVec);
+			vectors.push(highVec);
+		}
+		else
+		{
+			LowHighVecPair lowHighPair;
+			lowHighPair.lowVec = lowVec;
+			lowHighPair.highVec = highVec;
+			reconstructLowHighPairs.push_back(lowHighPair);
+		}
+	}
+	return reconstructLowHighPairs;
+}
+
+void testSimpleVector()
+{
+	std::vector<float> nums = { 9, 7, 3, 5, 6, 10, 2, 6 };
+
+	std::vector<LowHighVecPair> reconstructLowHighPairs = printAndReturnDecomposition(nums);
+
+	std::cout << "\n";
+
+	while (reconstructLowHighPairs.size() > 1)
+	{
+		std::vector<LowHighVecPair> newPairs;
+		for (int i = 0; i < reconstructLowHighPairs.size(); i += 2)
+		{
+			LowHighVecPair pair1 = reconstructLowHighPairs.at(i);
+			LowHighVecPair pair2 = reconstructLowHighPairs.at(i + 1);
+
+			std::vector<float> newLowVec = addVectors(getLow_USample(pair1.lowVec), getHigh_USample(pair1.highVec));
+			printVector(pair1.lowVec);
+			std::cout << ", ";
+			printVector(pair1.highVec);
+			std::cout << " -> ";
+			printVector(newLowVec);
+			std::cout << "\n";
+
+			std::vector<float> newHighVec = addVectors(getLow_USample(pair2.lowVec), getHigh_USample(pair2.highVec));
+			printVector(pair2.lowVec);
+			std::cout << ", ";
+			printVector(pair2.highVec);
+			std::cout << " -> ";
+			printVector(newHighVec);
+			std::cout << "\n";
+
+			LowHighVecPair newPair;
+			newPair.lowVec = newLowVec;
+			newPair.highVec = newHighVec;
+			newPairs.push_back(newPair);
+		}
+		reconstructLowHighPairs = newPairs;
+	}
+
+	LowHighVecPair finalPair = reconstructLowHighPairs.at(0);
+	std::vector<float> reconstructedVec = addVectors(getLow_USample(finalPair.lowVec), getHigh_USample(finalPair.highVec));
+	printVector(finalPair.lowVec);
+	std::cout << ", ";
+	printVector(finalPair.highVec);
+	std::cout << " -> ";
+	printVector(reconstructedVec);
+	std::cout << "\n";
+
+	std::cout << "\n";
+}
+
 int main()
 {
 	int op;
@@ -470,6 +583,7 @@ int main()
 		printf(" 2 - Recursive Reconstruction\n");
 		printf(" 3 - Recursive 4 Levels Decomposition \n");
 		printf(" 4 - Compare original to reconstructed\n");
+		printf(" 5 - Test vector\n");
 		printf(" 0 - Exit\n\n");
 		printf("Option: ");
 		scanf("%d", &op);
@@ -486,6 +600,10 @@ int main()
 				break;
 			case 4:
 				testOriginalComparisonWithRes();
+				break;
+
+			case 5:
+				testSimpleVector();
 				break;
 		}
 	} while (op != 0);
