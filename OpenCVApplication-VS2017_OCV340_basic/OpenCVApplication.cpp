@@ -3,6 +3,7 @@
 
 #include "stdafx.h"
 #include "common.h"
+#include <queue>
 #include<vector>
 
 int hVec[2] = { 1, -1 };
