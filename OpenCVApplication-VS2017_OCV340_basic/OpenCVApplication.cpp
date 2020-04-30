@@ -429,7 +429,12 @@ Mat_<uchar> computeDifference(Mat_<uchar> original, Mat_<uchar> reconstruction)
 	int rows = original.rows;
 	int cols = original.cols;
 	Mat_<uchar> res = Mat_<uchar>(rows, cols);
-
+	for (int i = 0; i < original.rows; i++) {
+		for (int j = 0; j < original.cols; j++) {
+			res(i, j) = (original(i, j) - reconstruction(i, j)) * 10 + 128;
+		}
+	}
+	//res = res * 10 + 128;
 	return res;
 }
 
@@ -440,7 +445,16 @@ void testOriginalComparisonWithRes()
 	char fname[MAX_PATH];
 	while (openFileDlg(fname))
 	{
-		Mat_<uchar> src = imread(fname, CV_LOAD_IMAGE_GRAYSCALE);
+		Mat_<uchar> img = imread(fname, CV_LOAD_IMAGE_GRAYSCALE);
+		std::vector<Mat_<float>> decompositions = recursiveDecomposition(img);
+		Mat_<float> finalImg = recursiveReconstruction(decompositions);
+		Mat_<uchar> reconstructed = finalImg;
+		Mat_<uchar> dif = computeDifference(img, reconstructed);
+
+		imshow("Original", img);
+		imshow("Reconstruction", reconstructed);
+		imshow("Diffrence", dif);
+
 		waitKey(0);
 	}
 }
@@ -455,6 +469,7 @@ int main()
 		printf(" 1 - Decomposition & Reconstruction \n");
 		printf(" 2 - Recursive Reconstruction\n");
 		printf(" 3 - Recursive 4 Levels Decomposition \n");
+		printf(" 4 - Compare original to reconstructed\n");
 		printf(" 0 - Exit\n\n");
 		printf("Option: ");
 		scanf("%d", &op);
@@ -468,6 +483,9 @@ int main()
 				break;
 			case 3:
 				display4Levels();
+				break;
+			case 4:
+				testOriginalComparisonWithRes();
 				break;
 		}
 	} while (op != 0);
