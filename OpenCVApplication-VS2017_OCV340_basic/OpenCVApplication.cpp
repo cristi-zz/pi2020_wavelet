@@ -441,6 +441,7 @@ void testOriginalComparisonWithRes()
 	while (openFileDlg(fname))
 	{
 		Mat_<uchar> src = imread(fname, CV_LOAD_IMAGE_GRAYSCALE);
+
 		waitKey(0);
 	}
 }
