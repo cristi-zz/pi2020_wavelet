@@ -265,7 +265,7 @@ Mat_<uchar> combineImage(Mat_<uchar> ll, Mat_<uchar> lh, Mat_<uchar> hl, Mat_<uc
 
 	return result;
 }
-// result = [LH_128x128, HL_128x128, HH_128x128, LH_64x64, HL_64X64, HH_64X64, ...., LL_2x2, LH_2X2, HL_2X2, HH_2X2]
+// result = [LH_128x128, HL_128x128, HH_128x128, LH_64x64, HL_64X64, HH_64X64, ...., LH_2X2, HL_2X2, HH_2X2, LL_2x2]
 // LL_2^n x 2^n -> LL_2^(n - 1), LH_2^(n - 1), HL_2^(n - 1), HH_2^(n - 1)
 std::vector<Mat_<float>> recursiveDecomposition(Mat_<uchar> orig)
 {
@@ -275,19 +275,18 @@ std::vector<Mat_<float>> recursiveDecomposition(Mat_<uchar> orig)
 	while (ll.rows > 2) {
 		std::vector<Mat_<float>> divFour = divideIntoFour(ll);
 		ll = divFour.at(0).clone();
-		if (ll.rows == 2) {
-			result.push_back(ll);
-		}
 		result.push_back(divFour.at(1));
 		result.push_back(divFour.at(2));
 		result.push_back(divFour.at(3));
-
+		if (ll.rows == 2) {
+			result.push_back(ll);
+		}
 	}
 
 	return result;
 }
 
-// allDecompositions = [LH_128x128, HL_128x128, HH_128x128, LH_64x64, HL_64X64, HH_64X64, ...., LL_2x2, LH_2X2, HL_2X2, HH_2X2]
+// allDecompositions = [LH_128x128, HL_128x128, HH_128x128, LH_64x64, HL_64X64, HH_64X64, ...., LH_2X2, HL_2X2, HH_2X2, LL2x2] -> LL2x2 sa fie ultimul
 // LL_4x4 = reconstructImage(LL_2x2, LH_2x2, HL_2x2, HH_2x2)
 // ...
 // LL_2^n = reconstructImage(LL_2^(n - 1), LH_2^(n - 1), HL_2^(n - 1), HH_2^(n - 1))
@@ -295,7 +294,7 @@ Mat_<float> recursiveReconstruction(std::vector<Mat_<float>> allDecompositions)
 {
 
 	int sz = allDecompositions.size();
-	Mat_<float> ll = reconstructImage(allDecompositions.at(sz - 4), allDecompositions.at(sz - 3), allDecompositions.at(sz - 2), allDecompositions.at(sz - 1));
+	Mat_<float> ll = reconstructImage(allDecompositions.at(sz - 1), allDecompositions.at(sz - 4), allDecompositions.at(sz - 3), allDecompositions.at(sz - 2));
 
 	for (int i = sz - 5; i >= 0; i -= 3) {
 		ll = reconstructImage(ll, allDecompositions.at(i - 2), allDecompositions.at(i - 1), allDecompositions.at(i));
@@ -454,7 +453,7 @@ void testOriginalComparisonWithRes()
 
 		imshow("Original", img);
 		imshow("Reconstruction", reconstructed);
-		imshow("Diffrence", dif);
+		imshow("Difference", dif);
 
 		waitKey(0);
 	}
@@ -470,12 +469,6 @@ void printVector(std::vector<float> vec)
 	std::cout << vec.at(vec.size() - 1) << "]";
 }
 
-typedef struct
-{
-	std::vector<float> lowVec;
-	std::vector<float> highVec;
-}LowHighVecPair;
-
 std::vector<float> addVectors(std::vector<float> v1, std::vector<float> v2)
 {
 	std::vector<float> res;
@@ -486,93 +479,112 @@ std::vector<float> addVectors(std::vector<float> v1, std::vector<float> v2)
 	return res;
 }
 
-std::vector<LowHighVecPair> printAndReturnDecomposition(std::vector<float> nums)
+// param nou -> nr nivele descomp
+// nivel 0 -> nivel n-2 adaugare in vec de matrici rezultat doar high
+// nivel n - 1 => adaugare in vec de matrici rezultat high & low
+std::vector<std::vector<float>> printAndReturnDecompositionOfVec(std::vector<float> nums, int levels)
 {
-	std::cout << "\n";
-	std::queue<std::vector<float>> vectors;
-	vectors.push(nums);
-
-	std::vector<LowHighVecPair> reconstructLowHighPairs;
-	while (!vectors.empty())
+	std::vector<std::vector<float>> result;
+	std::vector<float> lowVec = nums;
+	std::vector<float> highVec;
+	for (int i = 1; i <= levels; i++)
 	{
-		std::vector<float> vec = vectors.front();
-		vectors.pop();
-		printVector(vec);
-		std::vector<float> lowVec = getLowVector(vec);
-		std::vector<float> highVec = getHighVector(vec);
-		std::cout << " -> L: ";
 		printVector(lowVec);
-		std::cout << ", H : ";
+		std::cout << " -> ";
+		highVec = getHighVector(lowVec);
+		lowVec = getLowVector(lowVec);
+		std::cout << "L : ";
+		printVector(lowVec);
+		std::cout << ", H: ";
 		printVector(highVec);
+
+		result.push_back(highVec);
+		if (i == levels)
+		{
+			result.push_back(lowVec);
+		}
 		std::cout << "\n";
-		if (lowVec.size() > 1)
-		{
-			vectors.push(lowVec);
-			vectors.push(highVec);
-		}
-		else
-		{
-			LowHighVecPair lowHighPair;
-			lowHighPair.lowVec = lowVec;
-			lowHighPair.highVec = highVec;
-			reconstructLowHighPairs.push_back(lowHighPair);
-		}
 	}
-	return reconstructLowHighPairs;
+
+	return result;
+}
+
+void reconstructTestVector(std::vector<std::vector<float>> decomp)
+{
+	int size = decomp.size();
+	std::vector<float> low = decomp.at(size - 1);
+	std::vector<float> high = decomp.at(size - 2);
+
+	std::vector<float> lowUSample = getLow_USample(low);
+	std::vector<float> highUSample = getHigh_USample(high);
+	low = addVectors(lowUSample, highUSample);
+
+	std::cout << "LowUS: ";
+	printVector(lowUSample);
+	std::cout << " + HighUS: ";
+	printVector(highUSample);
+	std::cout << " = Low: ";
+	printVector(low);
+	std::cout << std::endl;
+
+	for (int i = size - 3; i >= 0; i--)
+	{
+		high = decomp.at(i);
+		lowUSample = getLow_USample(low);
+		highUSample = getHigh_USample(high);
+		low = addVectors(lowUSample, highUSample);
+		std::cout << "LowUS: ";
+		printVector(lowUSample);
+		std::cout << " + HighUS: ";
+		printVector(highUSample);
+		std::cout << " = Low: ";
+		printVector(low);
+		std::cout << std::endl;
+	}
+
+	std::cout << std::endl;
 }
 
 void testSimpleVector()
 {
 	std::vector<float> nums = { 9, 7, 3, 5, 6, 10, 2, 6 };
-
-	std::vector<LowHighVecPair> reconstructLowHighPairs = printAndReturnDecomposition(nums);
-
+	std::vector<std::vector<float>> decomposition = printAndReturnDecompositionOfVec(nums, 3);
 	std::cout << "\n";
-
-	while (reconstructLowHighPairs.size() > 1)
-	{
-		std::vector<LowHighVecPair> newPairs;
-		for (int i = 0; i < reconstructLowHighPairs.size(); i += 2)
-		{
-			LowHighVecPair pair1 = reconstructLowHighPairs.at(i);
-			LowHighVecPair pair2 = reconstructLowHighPairs.at(i + 1);
-
-			std::vector<float> newLowVec = addVectors(getLow_USample(pair1.lowVec), getHigh_USample(pair1.highVec));
-			printVector(pair1.lowVec);
-			std::cout << ", ";
-			printVector(pair1.highVec);
-			std::cout << " -> ";
-			printVector(newLowVec);
-			std::cout << "\n";
-
-			std::vector<float> newHighVec = addVectors(getLow_USample(pair2.lowVec), getHigh_USample(pair2.highVec));
-			printVector(pair2.lowVec);
-			std::cout << ", ";
-			printVector(pair2.highVec);
-			std::cout << " -> ";
-			printVector(newHighVec);
-			std::cout << "\n";
-
-			LowHighVecPair newPair;
-			newPair.lowVec = newLowVec;
-			newPair.highVec = newHighVec;
-			newPairs.push_back(newPair);
-		}
-		reconstructLowHighPairs = newPairs;
-	}
-
-	LowHighVecPair finalPair = reconstructLowHighPairs.at(0);
-	std::vector<float> reconstructedVec = addVectors(getLow_USample(finalPair.lowVec), getHigh_USample(finalPair.highVec));
-	printVector(finalPair.lowVec);
-	std::cout << ", ";
-	printVector(finalPair.highVec);
-	std::cout << " -> ";
-	printVector(reconstructedVec);
-	std::cout << "\n";
-
-	std::cout << "\n";
+	reconstructTestVector(decomposition);
 }
 
+
+// returneaza o noua matrice dst cu valorile:
+	// dst(i, j) = 0 daca abs(src(i, j)) < threshold; dst(i, j) = src(i, j) altfel
+Mat_<float> filterMatrixWithThreshold(Mat_<float> src, int threshold)
+{
+	return Mat_<float>();
+}
+
+
+//	decomposition = [LH_128x128, HL_128x128, HH_128x128, LH_64x64, HL_64X64, HH_64X64, ...., LH_2X2, HL_2X2, HH_2X2, LL2x2]
+//	se returneaza un nou vector cu matrici noi (nu se modifica nici vectorul decomposition, nici vreo matrice din el)
+//		in care matricile LH, HL si HH din decomposition(la orice nivel) se transforma cu functia de mai sus "filterMatrixWithThreshold"
+//			(deci se adauga in vectorul rezultat o noua matrice transformata),
+//		iar cand se ajunge la matricea LL_2x2, se adauga o copie a acesteia in vectorul rezultat
+
+std::vector<Mat_<float>> filterHMatricesWithThreshold(std::vector<Mat_<float>> decomposition, int threshold)
+{
+	return std::vector<Mat_<float>>();
+}
+
+
+// Se incarca imagini in mod obisnuit
+//		Imaginea incarcata se va descompune cu functia recursiveDecomposition
+//		Se apeleaza functia filterHMatricesWithThreshold cu rezultatul acestei descompuneri si un prag citit de la tastatura
+//			Rezultatul apelului functiei va fi transmis lui recursiveReconstruction
+//				Se va afisa imaginea originala si imaginea rezultata in urma apelului recursiveReconstruction
+void testNoiseFilter()
+{
+
+}
+
+// Se completeaza meniul cu fiecare noua functionalitate
 int main()
 {
 	int op;
