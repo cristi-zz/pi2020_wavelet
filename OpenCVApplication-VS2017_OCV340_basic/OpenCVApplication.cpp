@@ -558,19 +558,50 @@ void testSimpleVector()
 	// dst(i, j) = 0 daca abs(src(i, j)) < threshold; dst(i, j) = src(i, j) altfel
 Mat_<float> filterMatrixWithThreshold(Mat_<float> src, int threshold)
 {
-	return Mat_<float>();
+	int rows = src.rows;
+	int cols = src.cols;
+	Mat_<float> dst = Mat_<float>(rows, cols);
+	for (int r = 0; r < rows; r++)
+	{
+		for (int c = 0; c < cols; c++)
+		{
+			float val = src(r, c);
+			float resVal = abs(val) < threshold ? 0 : val;
+			dst(r, c) = resVal;
+		}
+	}
+	return dst;
 }
 
 
 //	decomposition = [LH_128x128, HL_128x128, HH_128x128, LH_64x64, HL_64X64, HH_64X64, ...., LH_2X2, HL_2X2, HH_2X2, LL2x2]
 //	se returneaza un nou vector cu matrici noi (nu se modifica nici vectorul decomposition, nici vreo matrice din el)
-//		in care matricile LH, HL si HH din decomposition(la orice nivel) se transforma cu functia de mai sus "filterMatrixWithThreshold"
-//			(deci se adauga in vectorul rezultat o noua matrice transformata),
-//		iar cand se ajunge la matricea LL_2x2, se adauga o copie a acesteia in vectorul rezultat
+//		in care matricile HL si HH din decomposition(la orice nivel) se transforma cu functia de mai sus "filterMatrixWithThreshold"
+//			(deci se adauga in vectorul rezultat o noua matrice transformata)
+//		pentru celelalte matrici, se adauga o copie a acestora in vectorul rezultat
 
 std::vector<Mat_<float>> filterHMatricesWithThreshold(std::vector<Mat_<float>> decomposition, int threshold)
 {
-	return std::vector<Mat_<float>>();
+	std::vector<Mat_<float>> result;
+	int i = 0;
+	while (i < decomposition.size())
+	{
+		// daca suntem la o imagine HL
+		if ((i - 1) % 3 == 0)
+		{
+			Mat_<float> hl = filterMatrixWithThreshold(decomposition.at(i), threshold);
+			Mat_<float> hh = filterMatrixWithThreshold(decomposition.at(i + 1), threshold);
+			result.push_back(hl);
+			result.push_back(hh);
+			i += 2;
+		}
+		else
+		{
+			result.push_back(decomposition.at(i).clone());
+			i++;
+		}
+	}
+	return result;
 }
 
 
@@ -581,7 +612,20 @@ std::vector<Mat_<float>> filterHMatricesWithThreshold(std::vector<Mat_<float>> d
 //				Se va afisa imaginea originala si imaginea rezultata in urma apelului recursiveReconstruction
 void testNoiseFilter()
 {
-
+	char fname[MAX_PATH];
+	while (openFileDlg(fname))
+	{
+		Mat_<uchar> img = imread(fname, CV_LOAD_IMAGE_GRAYSCALE);
+		int threshold = 0;
+		std::cout << "Dati threshold: \n";
+		std::cin >> threshold;
+		std::vector<Mat_<float>> decomp = recursiveDecomposition(img);
+		std::vector<Mat_<float>> thresholdFiltered = filterHMatricesWithThreshold(decomp, threshold);
+		Mat_<uchar> result = recursiveReconstruction(thresholdFiltered);
+		imshow("Original", img);
+		imshow("Reconstructie cu filtrare dupa prag", result);
+		waitKey(0);
+	}
 }
 
 // Se completeaza meniul cu fiecare noua functionalitate
@@ -597,6 +641,7 @@ int main()
 		printf(" 3 - Recursive 4 Levels Decomposition \n");
 		printf(" 4 - Compare original to reconstructed\n");
 		printf(" 5 - Test vector\n");
+		printf(" 6 - Noise filter\n");
 		printf(" 0 - Exit\n\n");
 		printf("Option: ");
 		scanf("%d", &op);
@@ -617,6 +662,10 @@ int main()
 
 			case 5:
 				testSimpleVector();
+				break;
+
+			case 6:
+				testNoiseFilter();
 				break;
 		}
 	} while (op != 0);
