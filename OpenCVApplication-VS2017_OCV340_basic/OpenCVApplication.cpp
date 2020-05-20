@@ -5,6 +5,7 @@
 #include "common.h"
 #include <queue>
 #include<vector>
+#include <string>
 
 int hVec[2] = { 1, -1 };
 void testParcurgereSimplaDiblookStyle()
@@ -583,24 +584,11 @@ Mat_<float> filterMatrixWithThreshold(Mat_<float> src, int threshold)
 std::vector<Mat_<float>> filterHMatricesWithThreshold(std::vector<Mat_<float>> decomposition, int threshold)
 {
 	std::vector<Mat_<float>> result;
-	int i = 0;
-	while (i < decomposition.size())
+	for (int i = 0; i < decomposition.size() - 1; i++)
 	{
-		// daca suntem la o imagine HL
-		if ((i - 1) % 3 == 0)
-		{
-			Mat_<float> hl = filterMatrixWithThreshold(decomposition.at(i), threshold);
-			Mat_<float> hh = filterMatrixWithThreshold(decomposition.at(i + 1), threshold);
-			result.push_back(hl);
-			result.push_back(hh);
-			i += 2;
-		}
-		else
-		{
-			result.push_back(decomposition.at(i).clone());
-			i++;
-		}
+		result.push_back(filterMatrixWithThreshold(decomposition.at(i), threshold));
 	}
+	result.push_back(decomposition.at(decomposition.size() - 1).clone());
 	return result;
 }
 
@@ -622,10 +610,259 @@ void testNoiseFilter()
 		std::vector<Mat_<float>> decomp = recursiveDecomposition(img);
 		std::vector<Mat_<float>> thresholdFiltered = filterHMatricesWithThreshold(decomp, threshold);
 		Mat_<uchar> result = recursiveReconstruction(thresholdFiltered);
+		Mat_<uchar> diff = computeDifference(img, result);
 		imshow("Original", img);
 		imshow("Reconstructie cu filtrare dupa prag", result);
+		imshow("Diferenta", diff);
 		waitKey(0);
 	}
+}
+
+void computeMatrixHistogram(float hist[255], Mat_<float> img)
+{
+	int rows = img.rows;
+	int cols = img.cols;
+	for (int r = 0; r < rows; r++)
+	{
+		for (int c = 0; c < cols; c++)
+		{
+			int val = (int)img(r, c);
+			hist[val + 127]++;
+		}
+	}
+}
+
+void computeFDP(float hist[255], Mat_<float> img)
+{
+	float M = img.rows * img.cols;
+	for (int i = 0; i < 255; i++)
+	{
+		hist[i] = hist[i] / M;
+	}
+}
+
+float findClosestMax(float num, std::vector<float> maxime)
+{
+	float minDiff = 1000;
+	float value = 0;
+	for (int i = 0; i < maxime.size(); i++)
+	{
+		int diff = abs(num - maxime.at(i));
+		if (diff <= minDiff)
+		{
+			minDiff = diff;
+			value = maxime.at(i);
+		}
+	}
+	return value;
+}
+
+std::vector<float> determineGreyThresholds(float fdp[255], Mat_<uchar> img, int wh, double th)
+{
+	std::vector<float> maxim;
+	for (int k = -127 + wh; k <= 127 - wh; k++)
+	{
+		float histSum = 0;
+		bool greaterThanAll = true;
+		for (int j = k - wh; j <= k + wh; j++)
+		{
+			histSum += fdp[j + 127];
+			if (fdp[k + 127] < fdp[j + 127])
+			{
+				greaterThanAll = false;
+			}
+		}
+		float v = histSum / (2 * wh + 1);
+
+		if (fdp[k + 127] > v + th && greaterThanAll)
+		{
+			maxim.push_back(k);
+		}
+	}
+
+	maxim.insert(maxim.begin(), -127);
+	maxim.push_back(127);
+	return maxim;
+}
+
+Mat_<float> getReducedGrayLevelsImage(Mat_<float> img, float hist[255], int doFDP = 0)
+{
+	computeMatrixHistogram(hist, img);
+	if (doFDP == 1)
+	{
+		computeFDP(hist, img);
+	}
+	int wh = 5;
+	double th = 0.0003;
+	std::vector<float> maxim = determineGreyThresholds(hist, img, wh, th);
+	int rows = img.rows;
+	int cols = img.cols;
+	Mat_<float> dest = Mat_<float>(rows, cols);
+	for (int i = 0; i < rows; i++)
+	{
+		for (int j = 0; j < cols; j++)
+		{
+			dest(i, j) = findClosestMax(img(i, j), maxim);
+		}
+	}
+
+	return dest;
+}
+
+// fiecare HX se cuantizeaza separat (pe rand)
+std::vector<Mat_<float>> applySeparateQuantization(std::vector<Mat_<float>> decomposition)
+{
+	std::vector<Mat_<float>> result;
+	for (int i = 0; i < decomposition.size() - 1; i++)
+	{
+		float hist[255] = { 0 };
+		result.push_back(getReducedGrayLevelsImage(decomposition.at(i), hist));
+	}
+
+	result.push_back(decomposition.at(decomposition.size() - 1).clone());
+	return result;
+}
+
+void testSeparateQuantizationReconstruction()
+{
+	char fname[MAX_PATH];
+	while (openFileDlg(fname))
+	{
+		Mat_<uchar> img = imread(fname, CV_LOAD_IMAGE_GRAYSCALE);
+		std::vector<Mat_<float>> decomp = recursiveDecomposition(img);
+		std::vector<Mat_<float>> sepQuantDecomp = applySeparateQuantization(decomp);
+		Mat_<uchar> result = recursiveReconstruction(sepQuantDecomp);
+		Mat_<uchar> diff = computeDifference(img, result);
+		imshow("Original", img);
+		imshow("Rec sep cuant", result);
+		imshow("Diferenta", diff);
+		waitKey(0);
+	}
+}
+
+// HX-urile se proceseaza impreuna
+std::vector<Mat_<float>> applyQuantizationCombined(std::vector<Mat_<float>> decomposition)
+{
+	std::vector<Mat_<float>> result;
+	float concatHist[255] = { 0 };
+	int size = decomposition.size();
+	for (int i = 0; i < size - 1; i++)
+	{
+		float hist[255] = { 0 };
+		computeMatrixHistogram(hist, decomposition.at(i));
+		for (int j = 0; j < 255; j++)
+		{
+			concatHist[j] += hist[j];
+		}
+	}
+
+	for (int i = 0; i < size - 1; i++)
+	{
+		Mat_<float> hx = decomposition.at(i);
+		Mat_<float> quant = getReducedGrayLevelsImage(hx, concatHist, i == 0);
+		result.push_back(quant);
+	}
+
+	result.push_back(decomposition.at(size - 1).clone());
+
+	return result;
+}
+
+void testCombinedQuantizationReconstruction()
+{
+	char fname[MAX_PATH];
+	while (openFileDlg(fname))
+	{
+		Mat_<uchar> img = imread(fname, CV_LOAD_IMAGE_GRAYSCALE);
+		std::vector<Mat_<float>> decomp = recursiveDecomposition(img);
+		std::vector<Mat_<float>> sepQuantDecomp = applyQuantizationCombined(decomp);
+		Mat_<uchar> result = recursiveReconstruction(sepQuantDecomp);
+		Mat_<uchar> diff = computeDifference(img, result);
+		imshow("Original", img);
+		imshow("Rec comb cuant", result);
+		imshow("Diferenta", diff);
+		waitKey(0);
+	}
+}
+
+void separateWindows3LevelRecursion(Mat_<uchar> src)
+{
+	Mat_<uchar> ll = src.clone();
+	for (int i = 1; i <= 3; i++)
+	{
+		std::vector<Mat_<float>> fourDiv = divideIntoFour(ll);
+		Mat_<uchar> newLL = fourDiv.at(0);
+		Mat_<uchar> lh = fourDiv.at(1);
+		Mat_<uchar> hl = fourDiv.at(2);
+		Mat_<uchar> hh = fourDiv.at(3);
+		
+		Mat_<uchar> res = combineImage(newLL, lh + 128, hl + 128, hh + 128);
+
+		Mat_<uchar> displayed = Mat_<uchar>(256, 256);
+		res.copyTo(displayed(Rect(0, 0, res.cols, res.rows)));
+
+		std::string title = std::to_string(lh.rows) + "x" + std::to_string(lh.cols);
+		imshow(title, displayed);
+
+		ll = newLL.clone();
+	}
+}
+
+void testSeparateWindows3LevelRecursion()
+{
+	char fname[MAX_PATH];
+	while (openFileDlg(fname))
+	{
+		Mat_<uchar> img = imread(fname, CV_LOAD_IMAGE_GRAYSCALE);
+		separateWindows3LevelRecursion(img);
+		waitKey(0);
+	}
+}
+
+std::vector<float> computeRLE(std::vector<float> vec)
+{
+	std::vector<float> res;
+	int size = vec.size();
+	if (vec.size() != 0)
+	{
+		int prevVal = vec.at(0);
+		int count = 1;
+		for (int i = 1; i < size; i++)
+		{
+			int x = vec.at(i);
+			if (x != prevVal)
+			{
+				res.push_back(count);
+				res.push_back(prevVal);
+				prevVal = x;
+				count = 1;
+			}
+			else
+			{
+				count++;
+			}
+		}
+		res.push_back(count);
+		res.push_back(prevVal);
+	}
+	return res;
+}
+
+void testRLE()
+{
+	std::vector<float> testVec = {0, 0, 0, 0, 25, 36, 25, 4, 4, 4, 4, 4, 4, 4, 0, 0, 0, 0, 0, 0, 0, 0};
+	std::vector<float> rleEnc = computeRLE(testVec);
+	for (int i = 0; i < rleEnc.size(); i += 2)
+	{
+		int val = rleEnc.at(i + 1);
+		int count = rleEnc.at(i);
+		std::cout << "[" << val << ", " << count << "]";
+		if (i != rleEnc.size() - 1)
+		{
+			std::cout << ", ";
+		}
+	}
+	std::cout << std::endl;
 }
 
 // Se completeaza meniul cu fiecare noua functionalitate
@@ -642,6 +879,10 @@ int main()
 		printf(" 4 - Compare original to reconstructed\n");
 		printf(" 5 - Test vector\n");
 		printf(" 6 - Noise filter\n");
+		printf(" 7 - Separate quantization reconstruction\n");
+		printf(" 8 - Combined quantization reconstruction\n");
+		printf(" 9 - Separate windows 3 level recursion\n");
+		printf(" 10 - Test RLE\n");
 		printf(" 0 - Exit\n\n");
 		printf("Option: ");
 		scanf("%d", &op);
@@ -666,6 +907,22 @@ int main()
 
 			case 6:
 				testNoiseFilter();
+				break;
+
+			case 7:
+				testSeparateQuantizationReconstruction();
+				break;
+
+			case 8:
+				testCombinedQuantizationReconstruction();
+				break;
+
+			case 9:
+				testSeparateWindows3LevelRecursion();
+				break;
+
+			case 10:
+				testRLE();
 				break;
 		}
 	} while (op != 0);
