@@ -632,12 +632,12 @@ void computeMatrixHistogram(float hist[255], Mat_<float> img)
 	}
 }
 
-void computeFDP(float hist[255], Mat_<float> img)
+void computeFDP(float hist[255], int rows, int cols)
 {
-	float M = img.rows * img.cols;
+	float M = rows * cols;
 	for (int i = 0; i < 255; i++)
 	{
-		hist[i] = hist[i] / M;
+		hist[i] = 1.0f * hist[i] / M;
 	}
 }
 
@@ -680,20 +680,20 @@ std::vector<float> determineGreyThresholds(float fdp[255], Mat_<uchar> img, int 
 		}
 	}
 
-	maxim.insert(maxim.begin(), -127);
-	maxim.push_back(127);
+	//maxim.insert(maxim.begin(), -127);
+	//maxim.push_back(127);
 	return maxim;
 }
 
 Mat_<float> getReducedGrayLevelsImage(Mat_<float> img, float hist[255], int doFDP = 0)
 {
-	computeMatrixHistogram(hist, img);
 	if (doFDP == 1)
 	{
-		computeFDP(hist, img);
+		computeMatrixHistogram(hist, img);
+		computeFDP(hist, img.rows, img.cols);
 	}
-	int wh = 5;
-	double th = 0.0003;
+	int wh = 3;
+	float th = 0.000003;
 	std::vector<float> maxim = determineGreyThresholds(hist, img, wh, th);
 	int rows = img.rows;
 	int cols = img.cols;
@@ -716,7 +716,7 @@ std::vector<Mat_<float>> applySeparateQuantization(std::vector<Mat_<float>> deco
 	for (int i = 0; i < decomposition.size() - 1; i++)
 	{
 		float hist[255] = { 0 };
-		result.push_back(getReducedGrayLevelsImage(decomposition.at(i), hist));
+		result.push_back(getReducedGrayLevelsImage(decomposition.at(i), hist, 1));
 	}
 
 	result.push_back(decomposition.at(decomposition.size() - 1).clone());
@@ -756,10 +756,18 @@ std::vector<Mat_<float>> applyQuantizationCombined(std::vector<Mat_<float>> deco
 		}
 	}
 
+	int m = 0;
+	for (int i = 0; i < 255; i++)
+	{
+		m += concatHist[i];
+	}
+
+	computeFDP(concatHist, m, 1);
+
 	for (int i = 0; i < size - 1; i++)
 	{
 		Mat_<float> hx = decomposition.at(i);
-		Mat_<float> quant = getReducedGrayLevelsImage(hx, concatHist, i == 0);
+		Mat_<float> quant = getReducedGrayLevelsImage(hx, concatHist, 0);
 		result.push_back(quant);
 	}
 
