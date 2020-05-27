@@ -556,7 +556,7 @@ void testSimpleVector()
 
 
 // returneaza o noua matrice dst cu valorile:
-	// dst(i, j) = 0 daca abs(src(i, j)) < threshold; dst(i, j) = src(i, j) altfel
+// dst(i, j) = 0 daca abs(src(i, j)) < threshold; dst(i, j) = src(i, j) altfel
 Mat_<float> filterMatrixWithThreshold(Mat_<float> src, int threshold)
 {
 	int rows = src.rows;
@@ -612,7 +612,7 @@ void testNoiseFilter()
 		Mat_<uchar> result = recursiveReconstruction(thresholdFiltered);
 		Mat_<uchar> diff = computeDifference(img, result);
 		imshow("Original", img);
-		imshow("Reconstructie cu filtrare dupa prag", result);
+		imshow("Filtrare zgomot", result);
 		imshow("Diferenta", diff);
 		waitKey(0);
 	}
@@ -803,7 +803,7 @@ void separateWindows3LevelRecursion(Mat_<uchar> src)
 		Mat_<uchar> lh = fourDiv.at(1);
 		Mat_<uchar> hl = fourDiv.at(2);
 		Mat_<uchar> hh = fourDiv.at(3);
-		
+
 		Mat_<uchar> res = combineImage(newLL, lh + 128, hl + 128, hh + 128);
 
 		Mat_<uchar> displayed = Mat_<uchar>(256, 256);
@@ -858,7 +858,7 @@ std::vector<float> computeRLE(std::vector<float> vec)
 
 void testRLE()
 {
-	std::vector<float> testVec = {0, 0, 0, 0, 25, 36, 25, 4, 4, 4, 4, 4, 4, 4, 0, 0, 0, 0, 0, 0, 0, 0};
+	std::vector<float> testVec = { 0, 0, 0, 0, 25, 36, 25, 4, 4, 4, 4, 4, 4, 4, 0, 0, 0, 0, 0, 0, 0, 0 };
 	std::vector<float> rleEnc = computeRLE(testVec);
 	for (int i = 0; i < rleEnc.size(); i += 2)
 	{
@@ -871,6 +871,51 @@ void testRLE()
 		}
 	}
 	std::cout << std::endl;
+}
+
+// eliminare partea fractionara din valorile matricei (ex: x.5 -> x)
+// important pentru aplicarea RLE
+Mat_<float> convertToMatWithoutFractionalPart(Mat_<float> img)
+{
+	Mat_<float> res = Mat_<float>(img.rows, img.cols);
+	return res;
+}
+
+// transformare matrice in vector
+//  se pastreaza elementele in vectorul result
+std::vector<float> convertMatrixToVector(Mat_<float> mat)
+{
+	std::vector<float> result;
+
+	return result;
+}
+
+// functia se foloseste inclusiv pentru aflarea dimensiunii unei singure matrice
+// in acel caz, se trimite ca parametru un vector ce contine numai matricea respectiva
+
+/* Pasi: 1) se declara un std::vector<float> res
+2) pentru fiecare mat in matrices:
+no_frac <- convertToMatWithoutFractionalPart(mat)
+vec <- convertMatrixToVector(no_frac)
+toate elementele lui vec se pun la sfarsitul lui res
+3) in variabila size se salveaza lungimea vectorului rezultat prin aplicarea
+functiei computeRLE asupra vectorului res
+4) se returneaza variabila size
+*/
+int getNumberOfWordsInVectorOfMatrices(std::vector<Mat_<float>> matrices)
+{
+	int size = 0;
+	return size;
+}
+
+void displayAllRLEWordSizes()
+{
+	char fname[MAX_PATH];
+	while (openFileDlg(fname))
+	{
+		Mat_<uchar> img = imread(fname, CV_LOAD_IMAGE_GRAYSCALE);
+		waitKey(0);
+	}
 }
 
 // Se completeaza meniul cu fiecare noua functionalitate
@@ -896,45 +941,45 @@ int main()
 		scanf("%d", &op);
 
 		switch (op) {
-			case 1:
-				testDecomposition();
-				break;
-			case 2:
-				testRecursiveReconstruction();
-				break;
-			case 3:
-				display4Levels();
-				break;
-			case 4:
-				testOriginalComparisonWithRes();
-				break;
+		case 1:
+			testDecomposition();
+			break;
+		case 2:
+			testRecursiveReconstruction();
+			break;
+		case 3:
+			display4Levels();
+			break;
+		case 4:
+			testOriginalComparisonWithRes();
+			break;
 
-			case 5:
-				testSimpleVector();
-				break;
+		case 5:
+			testSimpleVector();
+			break;
 
-			case 6:
-				testNoiseFilter();
-				break;
+		case 6:
+			testNoiseFilter();
+			break;
 
-			case 7:
-				testSeparateQuantizationReconstruction();
-				break;
+		case 7:
+			testSeparateQuantizationReconstruction();
+			break;
 
-			case 8:
-				testCombinedQuantizationReconstruction();
-				break;
+		case 8:
+			testCombinedQuantizationReconstruction();
+			break;
 
-			case 9:
-				testSeparateWindows3LevelRecursion();
-				break;
+		case 9:
+			testSeparateWindows3LevelRecursion();
+			break;
 
-			case 10:
-				testRLE();
-				break;
+		case 10:
+			testRLE();
+			break;
 		}
 	} while (op != 0);
-	
+
 	getchar();
 
 	return 0;
