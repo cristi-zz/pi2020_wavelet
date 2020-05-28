@@ -918,6 +918,40 @@ void displayAllRLEWordSizes()
 	}
 }
 
+// transformare matrice in vector
+//  se pastreaza elementele in vectorul result
+std::vector<float> convertMatrixToVector(Mat_<float> mat)
+{
+	std::vector<float> result;
+	int rows = mat.rows;
+	int cols = mat.cols;
+	for (int r = 0; r < rows; r++)
+	{
+		for (int c = 0; c < cols; c++)
+		{
+			result.push_back(mat(r, c));
+		}
+	}
+	return result;
+}
+
+int getNumberOfWordsInVectorOfMatrices(std::vector<Mat_<float>> matrices)
+{
+	int size = 0;
+	std::vector<float> res;
+	for (int i = 0; i < matrices.size(); i++)
+	{
+		Mat_<float> no_frac = convertToMatWithoutFractionalPart(matrices.at(i));
+		std::vector<float> vec = convertMatrixToVector(no_frac);
+		for (int j = 0; j < vec.size(); j++)
+		{
+			res.push_back(vec.at(j));
+		}
+	}
+	size = computeRLE(res).size();
+	return size;
+}
+
 // Se completeaza meniul cu fiecare noua functionalitate
 int main()
 {
