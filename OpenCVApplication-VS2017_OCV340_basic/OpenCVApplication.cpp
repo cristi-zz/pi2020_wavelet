@@ -878,6 +878,15 @@ void testRLE()
 Mat_<float> convertToMatWithoutFractionalPart(Mat_<float> img)
 {
 	Mat_<float> res = Mat_<float>(img.rows, img.cols);
+	int rows = img.rows;
+	int cols = img.cols;
+	for (int r = 0; r < rows; r++)
+	{
+		for (int c = 0; c < cols; c++)
+		{
+			res(r, c) = (int)img(r, c);
+		}
+	}
 	return res;
 }
 
@@ -914,6 +923,49 @@ void displayAllRLEWordSizes()
 	while (openFileDlg(fname))
 	{
 		Mat_<uchar> img = imread(fname, CV_LOAD_IMAGE_GRAYSCALE);
+
+		Mat_<float> imgOrig = img;
+		std::vector<Mat_<float>> imOrigMat;
+		imOrigMat.push_back(imgOrig);
+		int imgOrigWords = getNumberOfWordsInVectorOfMatrices(imOrigMat);
+		std::cout << "Cuvinte original: " << imgOrigWords << std::endl;
+
+		std::vector<Mat_<float>> standardPyramid = recursiveDecomposition(img);
+		Mat_<float> standardReconst = recursiveReconstruction(standardPyramid);
+		std::vector<Mat_<float>> stReconstMat;
+		stReconstMat.push_back(standardReconst);
+		int stdReconstWords = getNumberOfWordsInVectorOfMatrices(stReconstMat);
+		int stdPyramidWords = getNumberOfWordsInVectorOfMatrices(standardPyramid);
+		std::cout << "Cuvinte img reconstructie standard: " << stdReconstWords << std::endl;
+		std::cout << "Cuvinte piramida standard: " << stdPyramidWords << std::endl;
+
+		std::vector<Mat_<float>> noisePyramid = filterHMatricesWithThreshold(standardPyramid, 10);
+		Mat_<float> noiseReconst = recursiveReconstruction(noisePyramid);
+		std::vector<Mat_<float>> noiseReconstMat;
+		noiseReconstMat.push_back(noiseReconst);
+		int noiseReconstWords = getNumberOfWordsInVectorOfMatrices(noiseReconstMat);
+		int noisePyramidWords = getNumberOfWordsInVectorOfMatrices(noisePyramid);
+		std::cout << "Cuvinte img reconstructie zgomot (th = 10): " << noiseReconstWords << std::endl;
+		std::cout << "Cuvinte piramida zgomot: " << noisePyramidWords << std::endl;
+
+		std::vector<Mat_<float>> sepCuantPyramid = applySeparateQuantization(standardPyramid);
+		Mat_<float> sepCuantReconst = recursiveReconstruction(sepCuantPyramid);
+		std::vector<Mat_<float>> sepCuantReconstMat;
+		sepCuantReconstMat.push_back(sepCuantReconst);
+		int sepCuantReconstWords = getNumberOfWordsInVectorOfMatrices(sepCuantReconstMat);
+		int sepCuantPyramidWords = getNumberOfWordsInVectorOfMatrices(sepCuantPyramid);
+		std::cout << "Cuvinte img reconstructie sep cuant: " << sepCuantReconstWords << std::endl;
+		std::cout << "Cuvinte piramida sep cuant: " << sepCuantPyramidWords << std::endl;
+
+		std::vector<Mat_<float>> combCuantPyramid = applyQuantizationCombined(standardPyramid);
+		Mat_<float> combCuantReconst = recursiveReconstruction(combCuantPyramid);
+		std::vector<Mat_<float>> combCuantReconstMat;
+		combCuantReconstMat.push_back(combCuantReconst);
+		int combCuantReconstWords = getNumberOfWordsInVectorOfMatrices(combCuantReconstMat);
+		int combCuantPyramidWords = getNumberOfWordsInVectorOfMatrices(combCuantPyramid);
+		std::cout << "Cuvinte img reconstructie comb cuant: " << combCuantReconstWords << std::endl;
+		std::cout << "Cuvinte piramida comb cuant: " << combCuantPyramidWords << std::endl;
+
 		waitKey(0);
 	}
 }
