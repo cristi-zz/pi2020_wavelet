@@ -890,32 +890,6 @@ Mat_<float> convertToMatWithoutFractionalPart(Mat_<float> img)
 	return res;
 }
 
-// transformare matrice in vector
-//  se pastreaza elementele in vectorul result
-std::vector<float> convertMatrixToVector(Mat_<float> mat)
-{
-	std::vector<float> result;
-
-	return result;
-}
-
-// functia se foloseste inclusiv pentru aflarea dimensiunii unei singure matrice
-// in acel caz, se trimite ca parametru un vector ce contine numai matricea respectiva
-
-/* Pasi: 1) se declara un std::vector<float> res
-2) pentru fiecare mat in matrices:
-no_frac <- convertToMatWithoutFractionalPart(mat)
-vec <- convertMatrixToVector(no_frac)
-toate elementele lui vec se pun la sfarsitul lui res
-3) in variabila size se salveaza lungimea vectorului rezultat prin aplicarea
-functiei computeRLE asupra vectorului res
-4) se returneaza variabila size
-*/
-int getNumberOfWordsInVectorOfMatrices(std::vector<Mat_<float>> matrices)
-{
-	int size = 0;
-	return size;
-}
 
 void displayAllRLEWordSizes()
 {
